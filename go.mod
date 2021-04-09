@@ -1,5 +1,4 @@
-module github.com/broosaction/gotext
+module github.com/brucetruth/gotext
 
 go 1.15
 
-replace goText => github.com/broosaction/gotext v0.1-alpha
