@@ -8,7 +8,7 @@
 package tokenizers
 
 import (
-	stringUtils "goText/utils/strings"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
 	"strings"
 )
 
@@ -20,13 +20,21 @@ import (
  * @category    Machine Learning
  * [Author]: Bruce Mubangwa
  */
-func Word(sentence string) []string {
+// WordTokenizer is the primary interface for tokenizing words
+type WordTokenizer struct{
+	RemoveStopWords bool
+}
 
-	s := stringUtils.Cleanup(sentence)
-	words := strings.Fields(s)
+func (wt WordTokenizer)Tokenize(text string) []string{
+	safeText := stringUtils.Cleanup(text)
+	words := strings.Fields(safeText)
 	var tokens []string
 	for _, w := range words {
-		if !stringUtils.IsStopword(w) {
+		if wt.RemoveStopWords == true {
+			if !stringUtils.IsStopword(w) {
+				tokens = append(tokens, w)
+			}
+		}else{
 			tokens = append(tokens, w)
 		}
 	}

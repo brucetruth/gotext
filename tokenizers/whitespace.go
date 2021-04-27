@@ -8,17 +8,19 @@
 package tokenizers
 
 import (
-	stringUtils "goText/utils/strings"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
 	"strings"
 )
 
-type Whitespace struct{
+type WhitespaceTokenizer struct{
 	/**
 	 * The whitespace character that delimits each token.
 	 *
 	 * @var string
 	 */
 	delimiter string
+
+	RemoveStopWords bool
 }
 
 /**
@@ -30,7 +32,7 @@ type Whitespace struct{
  * [Author]: Bruce Mubangwa
 **/
 
-func (wp Whitespace) Whitespace(sentence string) []string {
+func (wp WhitespaceTokenizer) Tokenize(sentence string) []string {
 
 	if wp.delimiter == "" {
 		wp.delimiter = " "
@@ -39,9 +41,14 @@ func (wp Whitespace) Whitespace(sentence string) []string {
 	words := strings.Split(s, wp.delimiter)
 	var tokens []string
 	for _, w := range words {
-		if !stringUtils.IsStopword(w) {
+		if wp.RemoveStopWords == true {
+			if !stringUtils.IsStopword(w) {
+				tokens = append(tokens, w)
+			}
+		}else{
 			tokens = append(tokens, w)
 		}
+
 	}
 	return tokens
 }

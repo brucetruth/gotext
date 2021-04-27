@@ -8,7 +8,7 @@
 package tokenizers
 
 import (
-	stringUtils "goText/utils/strings"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
 	"strings"
 )
 /**
@@ -16,15 +16,24 @@ import (
  *
  * [Author]: Bruce Mubangwa
  */
+
+type ParagraphTokenizer struct {}
+
 const (
-	par_regx = "/(?:\r\n|\n\r|\n|\r)/"
+	regx = "/(?:\r\n|\n\r|\n|\r)/"
 )
 
 
-func Paragraphs(text string) []string {
+func (w *ParagraphTokenizer) tokenize(text string) []string {
 
 	s := stringUtils.Cleanup(text)
-	tokens := strings.Split(s, par_regx)
+	words := strings.Split(s, regx)
 
+	var tokens []string
+	for _, w := range words {
+		if !stringUtils.IsStopword(w) {
+			tokens = append(tokens, w)
+		}
+	}
 	return tokens
 }

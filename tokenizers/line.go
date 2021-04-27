@@ -9,7 +9,8 @@ package tokenizers
 
 import (
 	"bufio"
-	stringUtils "goText/utils/strings"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
+
 	"io"
 	"os"
 	"strings"

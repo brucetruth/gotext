@@ -10,7 +10,8 @@ package transformers
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"goText/tokenizers"
+	"github.com/broosaction/gotext/tokenizers"
+
 	"log"
 	"math"
 )
@@ -49,7 +50,7 @@ type TFIDF struct {
 	termDocs  map[string]int         // documents number for each term in train data
 	n         int                    // number of documents in train data
 	stopWords map[string]interface{} // words to be filtered
-	//tokenizer seg.Tokenizer          // tokenizer, space is used as default
+	tokenizer tokenizers.Tokenizer         // tokenizer, space is used as default
 }
 
 // New new model with default
@@ -59,13 +60,13 @@ func NewTFIDF() *TFIDF {
 		termFreqs: make([]map[string]int, 0),
 		termDocs:  make(map[string]int),
 		n:         0,
-		//tokenizer: &seg.EnTokenizer{},
+		tokenizer: &tokenizers.WordTokenizer{},
 	}
 }
 
 // NewTokenizer new with specified tokenizer
-/* works well in GOLD
-func NewTokenizer(tokenizers tokenizers) *TFIDF {
+// works well in GOLD
+func NewTokenizer(tokenizer tokenizers.Tokenizer) *TFIDF {
 	return &TFIDF{
 		docIndex:  make(map[string]int),
 		termFreqs: make([]map[string]int, 0),
@@ -74,7 +75,7 @@ func NewTokenizer(tokenizers tokenizers) *TFIDF {
 		tokenizer: tokenizer,
 	}
 }
-*/
+
 func (f *TFIDF) initStopWords() {
 	if f.stopWords == nil {
 		f.stopWords = make(map[string]interface{})
@@ -163,7 +164,7 @@ func (f *TFIDF) Cal(doc string) (weight map[string]float64) {
 func (f *TFIDF) termFreq(doc string) (m map[string]int) {
 	m = make(map[string]int)
 
-	tokens := tokenizers.Word(doc)
+	tokens := f.tokenizer.Tokenize(doc)
 	if len(tokens) == 0 {
 		return
 	}

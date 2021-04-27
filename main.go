@@ -9,7 +9,11 @@ package main
 
 import (
 	"fmt"
-	"goText/classifiers"
+	"github.com/broosaction/gotext/classifiers"
+	"github.com/broosaction/gotext/nlp/ner"
+	"github.com/broosaction/gotext/transformers"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
+	"github.com/broosaction/gotext/utils/types"
 )
 
 func main() {
@@ -18,9 +22,16 @@ func main() {
 
 	classifier.Learn("amazing, awesome movie!! Yeah!! Oh boy.", "positive")
 	classifier.Learn("Sweet, this is incredibly, amazing, perfect, great!!", "positive")
-	classifier.Learn("terrible, shitty thing. Damn. Sucks!!", "negative")
+	classifier.Learn("terrible, shitty thing. Damn. Sucks!! it is bad, hell no i hate it", "negative")
 
-	fmt.Println(classifier.Classify("awesome, cool shitty thing"))
+	fmt.Println(classifier.Classify("Damn, james this is a great thing, yeah "))
+
+	//wordlab
+	word := types.NewWord("agreed")
+	word.ApplyStemmer()
+	word.Text = "cats"
+	word.Learn()
+	fmt.Println(word.Stem)
 
 	train := [][]float64{
 		[]float64{5.3, 3.7},
@@ -74,4 +85,22 @@ func main() {
 			fmt.Println(res)
 
 
+
+	doc :=  types.NewDocument(`A perennial also-ran, Stallings won his seat when longtime lawmaker David Holmes
+    died 11 days after the filing deadline. Suddenly, Stallings was a shoo-in, not
+    the long shot. In short order, the Legislature attempted to pass a law allowing
+    former U.S. Rep. Carolyn Cheeks Kilpatrick to file; Stallings challenged the
+    law in court and won. Kilpatrick mounted a write-in campaign, but Stallings won.`)
+	doc.Learn()
+	fmt.Println(doc.Sentences[1].Text)
+	fmt.Println(len(doc.Sentences))
+	fmt.Println(ner.EMailEntityRecognizer("hi my email adress is bruce@broos.link and my other is broosaction@gmail.com"))
+     fmt.Println(stringUtils.IsAcronym("NDA"))
+	fmt.Println(transformers.ToPlural("ox"))
+
+	intent := classifiers.NewIntentClassifier()
+	intent.Train("amazing, awesome movie!! Yeah!! Oh boy.", "helli")
+	intent.Train("Sweet, this is incredibly, amazing, perfect, great!!", "positive")
+
+	fmt.Println(intent.Classify(" perfect is movie was"))
 }

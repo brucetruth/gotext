@@ -9,7 +9,7 @@ package tokenizers
 
 import (
 	"fmt"
-	stringUtils "goText/utils/strings"
+	stringUtils "github.com/broosaction/gotext/utils/strings"
 	"math"
 	"strings"
 )
@@ -28,7 +28,7 @@ const (
 	separator = " "
 )
 
-type NGram struct{
+type NGramTokenizer struct{
 
 	/**
 	 * The minimum number of contiguous words to a single token.
@@ -49,7 +49,7 @@ type NGram struct{
  * Tokenize a block of text.
  *
  */
-func (ng NGram) NGram(text string) []string {
+func (ng NGramTokenizer) Tokenize(text string) []string {
 	var nGrams []string
 
 

@@ -9,9 +9,9 @@ package classifiers
 
 import (
 	"fmt"
-	"goText/tokenizers"
+	"github.com/broosaction/gotext/tokenizers"
+	"github.com/broosaction/gotext/utils/types"
 	"math"
-	"regexp"
 	"strings"
 )
 
@@ -50,10 +50,11 @@ You can use this for categorizing any text content into any arbitrary set of **c
 	fmt.Println(classifier.Classify("awesome, cool shitty thing"))
  */
 type NaiveBayes struct {
-	words          map[string]wordFrequency
-	classes        map[string]Class
-	vocabularySize int
-	weigh weight
+	words           map[string]wordFrequency
+	classes         map[string]Class
+	vocabularySize 	int
+	weigh 			weight
+	tokenizer 		tokenizers.Tokenizer
 }
 
 
@@ -63,7 +64,7 @@ type NaiveBayes struct {
 type Class struct {
 	name                    string
 	counter                 int
-	words                   map[string]string
+	words                   map[string]types.Word
 	Probability             int
 	temp_tokenProbabilities float64
 }
@@ -88,17 +89,18 @@ type weight struct {
 //	}
 // }
 type wordFrequency struct {
-	word    string
+	word    types.Word
 	counter map[string]int
 }
 
 
 func NewNaiveBayes() *NaiveBayes {
 	c := new(NaiveBayes)
-	c.vocabularySize = 0
-	c.words = map[string]wordFrequency{}
-	c.classes = map[string]Class{}
-	c.weigh = weight{}
+	c.vocabularySize = 	0
+	c.words = 			map[string]wordFrequency{}
+	c.classes = 		map[string]Class{}
+	c.weigh = 			weight{}
+	c.tokenizer = 		&tokenizers.DefaultTokenizer{}
 	return c
 }
 
@@ -113,7 +115,7 @@ func (nb *NaiveBayes) setClasses(name string) {
 		wf = Class{
 			name:                    name,
 			counter:                 0,
-			words:                   map[string]string{},
+			words:                   map[string]types.Word{},
 			Probability:             0,
 			temp_tokenProbabilities: 0.0000,
 		}
@@ -122,22 +124,6 @@ func (nb *NaiveBayes) setClasses(name string) {
 
 }
 
-/**
- * Given an input string, tokenize it into an array of word tokens.
- * This is the default tokenization function used if user does not provide one in `options`.
- *
- * @param  {String} text
- * @return {Array}
- */
-func (nb *NaiveBayes) DefaultTokenizer(text string) []string {
-	//remove punctuation from text - remove anything that isn't a word char or a space
-	rgxPunctuation := "[^(a-zA-ZA-Яa-я0-9_)+\\s]"
-
-	r, _ := regexp.Compile(rgxPunctuation)
-
-	safeText := r.ReplaceAllString(text, " ")
-	return strings.Split(safeText, "/\\s+/")
-}
 
 
 
@@ -148,7 +134,7 @@ func (nb *NaiveBayes) DefaultTokenizer(text string) []string {
 func (nb *NaiveBayes) Learn(text, class string) {
 	nb.setClasses(class)
 	//normalize the text into a word array
-	tokens := tokenizers.Whitespace{}.Whitespace(text)
+	tokens := nb.tokenizer.Tokenize(text)
 
 	for _, w := range tokens {
 		nb.addWord(w, class)
@@ -156,14 +142,41 @@ func (nb *NaiveBayes) Learn(text, class string) {
 	}
 }
 
+func (nb *NaiveBayes) LearnSentence(sentence types.Sentence, class string) {
+	nb.setClasses(class)
+	//normalize the Sentence into a word array
+	sentence.PrepareWords()
+
+	tokens := sentence.Words
+
+	for _, w := range tokens {
+		nb.addWord(w.Text, class)
+
+	}
+}
+
+func (nb *NaiveBayes) LearnDocument(document types.Document, class string){
+	nb.setClasses(class)
+	document.PrepareSentences()
+	sentences := document.Sentences
+	for _, s := range sentences {
+		words := s.Words
+		for _, w := range words {
+			nb.addWord(w.Text, class)
+		}
+
+	}
+}
+
 func (nb *NaiveBayes) addWord(word, class string) {
+	word = strings.ToLower(word)
 	wf, ok := nb.words[word]
 	if !ok {
-		wf = wordFrequency{word: word, counter: map[string]int{}}
+		wf = wordFrequency{word: types.NewWord(word), counter: map[string]int{}}
 	}
 	wf.counter[class]++
 	nb.words[word] = wf
-	nb.classes[class].words[word] = word
+	nb.classes[class].words[word] = types.NewWord(word)
 	nb.vocabularySize++
 
 }
@@ -186,13 +199,14 @@ func (nb *NaiveBayes) tokenProbability(token, category string) float64 {
  * Determine what category or class `text` belongs to.
  */
 func (nb *NaiveBayes) Classify(text string) (string, float64) {
+	text = strings.ToLower(text)
 	//var maxProbability = -syscall.INFINITE
 	var top_probability = 0.0000
 	var chosenCategory string = ""
-	tokens := tokenizers.Whitespace{}.Whitespace(text)
+	tokens := nb.tokenizer.Tokenize(text)
 
 	for _, class := range nb.classes {
-		fmt.Println(class.words)
+
 		//start by calculating the overall probability of this category
 		//=>  out of all documents we've ever looked at, how many were
 		//    mapped to this category
@@ -210,8 +224,8 @@ func (nb *NaiveBayes) Classify(text string) (string, float64) {
 
 			frequencyInText := tokens_w[w]
 			tokenProbability := nb.tokenProbability(w, class.name)
-			fmt.Printf("token: %s category: %s tokenProbability: %f .", w, class.name, tokenProbability)
-			fmt.Println()
+			fmt.Printf("token: %s \t\tcategory: %s \ttokenProbability: %f \n\n", w, class.name, tokenProbability)
+
 			class.temp_tokenProbabilities += tokenProbability
 
 			//determine the log of the P( w | c ) for this word
