@@ -45,7 +45,6 @@ func (c *IntentClassifier) Train(r string, category string) error {
 	for _, feature := range c.tokenizer.Tokenize(r) {
 		c.addFeature(feature, category)
 	}
-	
 
 	c.addCategory(category)
 	return nil
