@@ -16,6 +16,7 @@ type DefaultTokenizer struct {
 	RemoveStopWords bool
 
 }
+var DefaultTokenizerName = "DefaultTokenizer"
 
 /**
  * Given an input string, tokenize it into an array of word tokens.
@@ -46,4 +47,8 @@ func (d *DefaultTokenizer) Tokenize(text string) []string {
 
 	}
 	return tokens
+}
+
+func (d *DefaultTokenizer) GetName() string {
+	return DefaultTokenizerName
 }
