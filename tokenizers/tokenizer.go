@@ -12,3 +12,25 @@ type Tokenizer interface {
 	Tokenize(string) []string
 
 }
+
+func GetTokenizer(name string) Tokenizer{
+
+	switch name {
+	case DefaultTokenizerName:
+		return &DefaultTokenizer{}
+	case LineTokenizerName:
+		return &LineTokenizer{}
+	case NGramTokenizerName:
+		return &NGramTokenizer{}
+	case ParagraphTokenizerName:
+		return &ParagraphTokenizer{}
+	case SentenceTokenizerName:
+		return &SentenceTokenizer{}
+	case WordTokenizerName:
+		return &WordTokenizer{}
+	case WhitespaceTokenizerName:
+		return &WhitespaceTokenizer{}
+	}
+
+	return nil
+}
