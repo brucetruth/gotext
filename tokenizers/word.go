@@ -25,7 +25,9 @@ type WordTokenizer struct{
 	RemoveStopWords bool
 }
 
-func (wt WordTokenizer)Tokenize(text string) []string{
+var WordTokenizerName = "WordTokenizer"
+
+func (wt WordTokenizer) Tokenize(text string) []string{
 	safeText := stringUtils.Cleanup(text)
 	words := strings.Fields(safeText)
 	var tokens []string
@@ -39,4 +41,9 @@ func (wt WordTokenizer)Tokenize(text string) []string{
 		}
 	}
 	return tokens
+}
+
+
+func (wt WordTokenizer) GetName() string {
+	return WordTokenizerName
 }

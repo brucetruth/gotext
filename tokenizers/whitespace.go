@@ -23,6 +23,8 @@ type WhitespaceTokenizer struct{
 	RemoveStopWords bool
 }
 
+var WhitespaceTokenizerName = "WhitespaceTokenizer"
+
 /**
  * Whitespace
  *
@@ -53,3 +55,6 @@ func (wp WhitespaceTokenizer) Tokenize(sentence string) []string {
 	return tokens
 }
 
+func (wp WhitespaceTokenizer) GetName() string {
+	return WhitespaceTokenizerName
+}
