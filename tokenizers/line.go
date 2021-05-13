@@ -25,13 +25,21 @@ import (
 const (
 	lINES = "/(?:\r\n|\n\r|\n|\r)/"
 )
+type LineTokenizer struct {
 
-func Line(sentence string) []string {
+}
+var LineTokenizerName = "LineTokenizer"
+
+func (l *LineTokenizer) Tokenize(sentence string) []string {
 
 	s := stringUtils.Cleanup(sentence)
 	tokens := strings.Split(s, lINES)
 
 	return tokens
+}
+
+func (l *LineTokenizer) GetName() string {
+	return LineTokenizerName
 }
 
 func ReadLines(file string) ([]string, error) {
