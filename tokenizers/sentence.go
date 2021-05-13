@@ -15,6 +15,8 @@ type SentenceTokenizer struct {
 	RemoveStopWords bool
 }
 
+var SentenceTokenizerName = "SentenceTokenizer"
+
 func (s *SentenceTokenizer) Tokenize(text string) []string {
 
 
@@ -29,4 +31,8 @@ func (s *SentenceTokenizer) Tokenize(text string) []string {
 		tokens = append(tokens, s.Text)
 	}
   return tokens
+}
+
+func (s *SentenceTokenizer) GetName() string {
+	return SentenceTokenizerName
 }
