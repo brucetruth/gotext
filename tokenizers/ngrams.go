@@ -45,6 +45,8 @@ type NGramTokenizer struct{
 	Max int
 }
 
+var NGramTokenizerName = "NGramTokenizer"
+
 /**
  * Tokenize a block of text.
  *
@@ -72,4 +74,8 @@ func (ng NGramTokenizer) Tokenize(text string) []string {
 
 
 	return nGrams
+}
+
+func (ng NGramTokenizer) GetName() string {
+	return NGramTokenizerName
 }
