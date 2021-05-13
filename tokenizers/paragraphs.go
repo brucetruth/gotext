@@ -23,8 +23,9 @@ const (
 	regx = "/(?:\r\n|\n\r|\n|\r)/"
 )
 
+var ParagraphTokenizerName = "ParagraphTokenizer"
 
-func (w *ParagraphTokenizer) tokenize(text string) []string {
+func (w *ParagraphTokenizer) Tokenize(text string) []string {
 
 	s := stringUtils.Cleanup(text)
 	words := strings.Split(s, regx)
@@ -36,4 +37,8 @@ func (w *ParagraphTokenizer) tokenize(text string) []string {
 		}
 	}
 	return tokens
+}
+
+func (w *ParagraphTokenizer) GetName() string {
+	return ParagraphTokenizerName
 }
