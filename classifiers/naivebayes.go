@@ -8,9 +8,14 @@
 package classifiers
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/broosaction/gotext/tokenizers"
+	"github.com/broosaction/gotext/utils/persist"
 	"github.com/broosaction/gotext/utils/types"
+	"go.uber.org/zap"
+	"log"
 	"math"
 	"strings"
 )
@@ -54,7 +59,7 @@ type NaiveBayes struct {
 	classes         map[string]Class
 	vocabularySize 	int
 	weigh 			weight
-	tokenizer 		tokenizers.Tokenizer
+	tokenizer 		string//tokenizers.Tokenizer
 }
 
 
@@ -62,11 +67,11 @@ type NaiveBayes struct {
  * The possible class outcomes.
  */
 type Class struct {
-	name                    string
-	counter                 int
-	words                   map[string]types.Word
+	Name                    string
+	Counter                 int
+	Words                   map[string]types.Word
 	Probability             int
-	temp_tokenProbabilities float64
+	Temp_tokenProbabilities float64
 }
 
 /**
@@ -75,8 +80,8 @@ type Class struct {
  * @var array
  */
 type weight struct {
-	amount float64
-	class  Class
+	Amount float64
+	Class  Class
 }
 
 
@@ -89,9 +94,16 @@ type weight struct {
 //	}
 // }
 type wordFrequency struct {
-	word    types.Word
-	counter map[string]int
+	Word    types.Word
+	Counter map[string]int
 }
+
+var (
+	checkpointFile    string
+)
+
+//changing this will make past saved models not work
+
 
 
 func NewNaiveBayes() *NaiveBayes {
@@ -100,8 +112,14 @@ func NewNaiveBayes() *NaiveBayes {
 	c.words = 			map[string]wordFrequency{}
 	c.classes = 		map[string]Class{}
 	c.weigh = 			weight{}
-	c.tokenizer = 		&tokenizers.DefaultTokenizer{}
+	tokenizer := tokenizers.DefaultTokenizer{}
+	c.tokenizer = 		tokenizer.GetName()
 	return c
+}
+
+
+func (nb *NaiveBayes) getMeta() (string, string) {
+	return "NaiveBayes", "01"
 }
 
 /**
@@ -113,11 +131,11 @@ func (nb *NaiveBayes) setClasses(name string) {
 	wf, ok := nb.classes[name]
 	if !ok {
 		wf = Class{
-			name:                    name,
-			counter:                 0,
-			words:                   map[string]types.Word{},
+			Name:                    name,
+			Counter:                 0,
+			Words:                   map[string]types.Word{},
 			Probability:             0,
-			temp_tokenProbabilities: 0.0000,
+			Temp_tokenProbabilities: 0.0000,
 		}
 	}
 	nb.classes[name] = wf
@@ -134,7 +152,8 @@ func (nb *NaiveBayes) setClasses(name string) {
 func (nb *NaiveBayes) Learn(text, class string) {
 	nb.setClasses(class)
 	//normalize the text into a word array
-	tokens := nb.tokenizer.Tokenize(text)
+
+	tokens := tokenizers.GetTokenizer(nb.tokenizer).Tokenize(text)// nb.tokenizer.Tokenize(text)
 
 	for _, w := range tokens {
 		nb.addWord(w, class)
@@ -172,11 +191,11 @@ func (nb *NaiveBayes) addWord(word, class string) {
 	word = strings.ToLower(word)
 	wf, ok := nb.words[word]
 	if !ok {
-		wf = wordFrequency{word: types.NewWord(word), counter: map[string]int{}}
+		wf = wordFrequency{Word: types.NewWord(word), Counter: map[string]int{}}
 	}
-	wf.counter[class]++
+	wf.Counter[class]++
 	nb.words[word] = wf
-	nb.classes[class].words[word] = types.NewWord(word)
+	nb.classes[class].Words[word] = types.NewWord(word)
 	nb.vocabularySize++
 
 }
@@ -187,9 +206,9 @@ func (nb *NaiveBayes) addWord(word, class string) {
  */
 func (nb *NaiveBayes) tokenProbability(token, category string) float64 {
 	//how many times this word has occurred in documents mapped to this category
-	wordFrequencyCount := nb.words[token].counter[category]
+	wordFrequencyCount := nb.words[token].Counter[category]
 	//what is the count of all words that have ever been mapped to this category
-	wordCount := len(nb.classes[category].words)
+	wordCount := len(nb.classes[category].Words)
 
 	//use laplace Add-1 Smoothing equation
 	return (float64(wordFrequencyCount) + 1) / (float64(wordCount) + float64(nb.vocabularySize))
@@ -203,14 +222,16 @@ func (nb *NaiveBayes) Classify(text string) (string, float64) {
 	//var maxProbability = -syscall.INFINITE
 	var top_probability = 0.0000
 	var chosenCategory string = ""
-	tokens := nb.tokenizer.Tokenize(text)
+	tokens :=  tokenizers.GetTokenizer(nb.tokenizer).Tokenize(text)//nb.tokenizer.Tokenize(text)
 
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 	for _, class := range nb.classes {
 
 		//start by calculating the overall probability of this category
 		//=>  out of all documents we've ever looked at, how many were
 		//    mapped to this category
-		categoryProbability := len(class.words) / len(nb.words)
+		categoryProbability := len(class.Words) / len(nb.words)
 		class.Probability = categoryProbability
 
 		//take the log to avoid underflow
@@ -223,21 +244,28 @@ func (nb *NaiveBayes) Classify(text string) (string, float64) {
 		for _, w := range tokens {
 
 			frequencyInText := tokens_w[w]
-			tokenProbability := nb.tokenProbability(w, class.name)
-			fmt.Printf("token: %s \t\tcategory: %s \ttokenProbability: %f \n\n", w, class.name, tokenProbability)
+			tokenProbability := nb.tokenProbability(w, class.Name)
 
-			class.temp_tokenProbabilities += tokenProbability
+
+			logger.Info("processed",
+				// Structured context as strongly typed Field values.
+				zap.String("token", w),
+				zap.String("category", class.Name),
+				zap.Float64("token Probability", tokenProbability),
+			)
+
+			class.Temp_tokenProbabilities += tokenProbability
 
 			//determine the log of the P( w | c ) for this word
 			logProbability += float64(frequencyInText) * math.Log(tokenProbability)
 		}
-		if class.temp_tokenProbabilities > top_probability {
-			top_probability = class.temp_tokenProbabilities
-			chosenCategory = class.name
+		if class.Temp_tokenProbabilities > top_probability {
+			top_probability = class.Temp_tokenProbabilities
+			chosenCategory = class.Name
 		}
          nb.weigh = weight{
-         	amount: class.temp_tokenProbabilities,
-         	class: class,
+         	Amount: class.Temp_tokenProbabilities,
+         	Class: class,
 		 }
 		/*if (logProbability > maxProbability) {
 			maxProbability = int(logProbability)
@@ -245,7 +273,97 @@ func (nb *NaiveBayes) Classify(text string) (string, float64) {
 		} */
 
 		//a reset is okay for online learning.
-		class.temp_tokenProbabilities = 0.0000
+		class.Temp_tokenProbabilities = 0.0000
 	}
 	return chosenCategory, top_probability
+}
+
+
+
+
+// GobEncode implements GobEncoder. This is necessary because RNN contains several unexported fields.
+// It would be easier to simply export them by changing to uppercase, but for comparison purposes,
+// I wanted to keep the field names the same between Go and the original Python code.
+func (nb *NaiveBayes) GobEncode() ([]byte, error) {
+	var b bytes.Buffer
+	encoder := gob.NewEncoder(&b)
+
+	var err error
+
+	encode := func(data interface{}) {
+		// no-op if we've already seen an err
+		if err == nil {
+			err = encoder.Encode(data)
+		}
+	}
+	encode(nb.words)
+	encode(nb.classes)
+	encode(nb.vocabularySize)
+	encode(nb.weigh)
+	encode(nb.tokenizer)
+
+	return b.Bytes(), err
+}
+
+func (nb *NaiveBayes) Save(file string) error {
+
+	buf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buf)
+
+	err := encoder.Encode(nb)
+	if err != nil {
+		return fmt.Errorf("error encoding model: %s", err)
+	}
+
+	name, version := nb.getMeta()
+	persist.Save(file, persist.Modeldata{
+		Data: buf.Bytes(),
+		Name: name,
+		Version: version,
+	})
+  return nil
+}
+
+// Load from the output file.
+func (nb *NaiveBayes) Load(filePath string) error {
+	log.Printf("Loading Classifier from %s...", filePath)
+	meta := persist.Load(filePath)
+	//get the classifier current meta data
+	name, version := nb.getMeta()
+	if meta.Name != name {
+		return fmt.Errorf("This file doesn't contain a Naive-Bayes classifier")
+	}
+	if meta.Version != version {
+		return fmt.Errorf("Can't understand this file format")
+	}
+
+	decoder := gob.NewDecoder(bytes.NewBuffer(meta.Data))
+	err := decoder.Decode(&nb)
+	if err != nil {
+		return  fmt.Errorf("error decoding RNN checkpoint file: %s", err)
+	}
+
+	checkpointFile = filePath
+   return nil
+}
+
+// GobDecode implements GoDecoder.
+func (nb *NaiveBayes) GobDecode(data []byte) error {
+	b := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(b)
+
+	var err error
+
+	decode := func(data interface{}) {
+		// no-op if we've already seen an err
+		if err == nil {
+			err = decoder.Decode(data)
+		}
+	}
+	decode(&nb.words)
+	decode(&nb.classes)
+	decode(&nb.vocabularySize)
+	decode(&nb.weigh)
+	decode(&nb.tokenizer)
+	return err
 }
