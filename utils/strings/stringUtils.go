@@ -2,6 +2,7 @@ package stringUtils
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf16"
+	"unsafe"
 )
 
 // StringInSlice looks for a string in slice.
@@ -74,4 +77,19 @@ func ReaderToString(r io.Reader,bufferSize int) chan string {
 	}()
 
 	return tokens
+}
+
+func EnSureUTF8(message string) string {
+	runeByte:= []rune(message)
+	encodedByte:=utf16.Encode(runeByte)
+	var buf bytes.Buffer
+	defer buf.Reset()
+	for _, num :=range encodedByte {
+		buf.WriteString(fmt.Sprintf("%04X", num))
+	}
+	return buf.String()
+}
+
+func BytesToString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }

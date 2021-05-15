@@ -29,3 +29,7 @@ func IsStopword(w string) bool {
 	_, ok := stopwords[w]
 	return ok
 }
+
+func GetStopwords() map[string]struct{} {
+	return stopwords
+}
