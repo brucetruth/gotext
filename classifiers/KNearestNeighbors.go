@@ -8,8 +8,12 @@
 package classifiers
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"github.com/broosaction/gotext/utils/persist"
+	"log"
 	"math"
 )
 
@@ -20,6 +24,8 @@ const (
 	DMT_EulerMethod DistanceMethodType = iota
 	// Huffman
 	DMT_HuffmanMethod
+
+
 )
 
 /**
@@ -108,28 +114,24 @@ type KNearestNeighbors struct {
 	 * Weight define the weight vector for multi-dimension data
 	 */
 	Weight         []float64
+
+	// The training samples that make up the neighborhood of the problem space.
+	Samples [][]float64
+
+
+	//The memoized labels of the training set.
+	Labels  []string
 }
 
 //SortedDistance
 type SortedDistance struct {
-	idx  []int
-	dist []float64
+	Idx  []int
+	Dist []float64
 
-	cur int
+	Cur int
 }
 
 var(
-	/**
-	 * The training samples that make up the neighborhood of the problem space.
-	 *
-	 */
-	samples [][]float64
-
-	/**
-	 * The memoized labels of the training set.
-	 */
-	labels  []string
-
 	errNotEqualDataLength = errors.New("The data length is not equal.")
 )
 
@@ -143,14 +145,17 @@ func NewKNearestNeighbors(k int, dm DistanceMethodType, w []float64) *KNearestNe
 	return knn
 }
 
+func (k *KNearestNeighbors) getMeta() (string, string) {
+	return "KNearestNeighbors", "01"
+}
 /**
  * Store the sample and outcome arrays. No other work to be done as this is
  * a lazy learning algorithm.
  *
  */
 func (k *KNearestNeighbors) LearnBatch(train [][]float64, label[]string){
-	samples = train
-	labels = label
+	k.Samples = train
+	k.Labels = label
 }
 
 
@@ -168,8 +173,8 @@ func (k *KNearestNeighbors) Classify(test [][]float64) []string {
 	result := make([]string, len(test))
 	for j, _test := range test {
 
-		sortedDistance = NewSortedDistance(len(samples))
-		for i, _train := range samples {
+		sortedDistance = NewSortedDistance(len(k.Samples))
+		for i, _train := range k.Samples {
 			var _dist float64
 			switch k.DistanceMethod {
 			case DMT_EulerMethod:
@@ -188,7 +193,7 @@ func (k *KNearestNeighbors) Classify(test [][]float64) []string {
 		freqLabels := make(map[string]int, k.K)
 		var maxFreq int = 0
 		for _, idx := range topKIdx {
-			_label := labels[idx]
+			_label := k.Labels[idx]
 			v, ok := freqLabels[_label]
 			if ok {
 				freqLabels[_label] = v + 1
@@ -272,29 +277,29 @@ func NewSortedDistance(size int) *SortedDistance {
 	fmt.Printf("size: %d", size)
 	fmt.Println()
 	s := &SortedDistance{
-		idx:  make([]int, size),
-		dist: make([]float64, size),
-		cur:  0,
+		Idx:  make([]int, size),
+		Dist: make([]float64, size),
+		Cur:  0,
 	}
 	return s
 }
 
 //Put
 func (s *SortedDistance) Put(idx int, dist float64) {
-	s.idx[s.cur] = idx
-	s.dist[s.cur] = dist
+	s.Idx[s.Cur] = idx
+	s.Dist[s.Cur] = dist
 
-	s.cur++
+	s.Cur++
 }
 
 //Len
 func (s *SortedDistance) Len() int {
-	return len(s.dist)
+	return len(s.Dist)
 }
 
 //Less return true if [i] < [j].
 func (s *SortedDistance) Less(i, j int) bool {
-	if s.dist[i] < s.dist[j] {
+	if s.Dist[i] < s.Dist[j] {
 		return true
 	}
 	return false
@@ -302,22 +307,65 @@ func (s *SortedDistance) Less(i, j int) bool {
 
 //Swap
 func (s *SortedDistance) Swap(i, j int) {
-	_tempIdx := s.idx[i]
-	_tempDistance := s.dist[i]
+	_tempIdx := s.Idx[i]
+	_tempDistance := s.Dist[i]
 
-	s.idx[i] = s.idx[j]
-	s.dist[i] = s.dist[j]
+	s.Idx[i] = s.Idx[j]
+	s.Dist[i] = s.Dist[j]
 
-	s.idx[j] = _tempIdx
-	s.dist[j] = _tempDistance
+	s.Idx[j] = _tempIdx
+	s.Dist[j] = _tempDistance
 }
 
 //SelectTopKIdx return the index of the train
 func (s *SortedDistance) SelectTopKIdx(k int) []int {
-	return s.idx[0:k]
+	return s.Idx[0:k]
 }
 
 //GetIdx
 func (s *SortedDistance) GetIdx() []int {
-	return s.idx
+	return s.Idx
+}
+
+//save to a file
+func (k *KNearestNeighbors) Save(file string) error {
+
+	buf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buf)
+
+	err := encoder.Encode(k)
+	if err != nil {
+		return fmt.Errorf("error encoding model: %s", err)
+	}
+
+	name, version := k.getMeta()
+	persist.Save(file, persist.Modeldata{
+		Data: buf.Bytes(),
+		Name: name,
+		Version: version,
+	})
+	return nil
+}
+
+// Load from the output file.
+func (k *KNearestNeighbors) Load(filePath string) error {
+	log.Printf("Loading Classifier from %s...", filePath)
+	meta := persist.Load(filePath)
+	//get the classifier current meta data
+	name, version := k.getMeta()
+	if meta.Name != name {
+		return fmt.Errorf("This file doesn't contain a KNearestNeighbors classifier")
+	}
+	if meta.Version != version {
+		return fmt.Errorf("Can't understand this file format")
+	}
+
+	decoder := gob.NewDecoder(bytes.NewBuffer(meta.Data))
+	err := decoder.Decode(&k)
+	if err != nil {
+		return  fmt.Errorf("error decoding RNN checkpoint file: %s", err)
+	}
+
+	checkpointFile = filePath
+	return nil
 }
