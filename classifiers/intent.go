@@ -9,17 +9,21 @@ package classifiers
 
 import (
 	"bytes"
+	"encoding/gob"
 	"errors"
+	"fmt"
 	"github.com/broosaction/gotext/tokenizers"
+	"github.com/broosaction/gotext/utils/persist"
 	"io"
+	"log"
 	"sync"
 )
 
 type IntentClassifier struct {
-	feat2cat  map[string]map[string]int
-	catCount  map[string]int
-	mu        sync.RWMutex
-	tokenizer tokenizers.Tokenizer
+	Feat2cat  map[string]map[string]int
+	CatCount  map[string]int
+	Mu        sync.RWMutex
+	Tokenizer string
 }
 
 var(
@@ -29,20 +33,25 @@ var(
 
 // New initializes a new naive Classifier using the standard tokenizer
 func NewIntentClassifier() *IntentClassifier {
+	tokenizer := tokenizers.DefaultTokenizer{}
 	c := &IntentClassifier{
-		feat2cat:  make(map[string]map[string]int),
-		catCount:  make(map[string]int),
-		tokenizer: &tokenizers.DefaultTokenizer{},
+		Feat2cat:  make(map[string]map[string]int),
+		CatCount:  make(map[string]int),
+		Tokenizer: tokenizer.GetName(),
 	}
 	return c
 }
 
+func (c *IntentClassifier) getMeta() (string, string) {
+	return "IntentClassifier", "01"
+}
+
 // Train provides supervisory training to the classifier
 func (c *IntentClassifier) Train(r string, category string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
-	for _, feature := range c.tokenizer.Tokenize(r) {
+	for _, feature := range tokenizers.GetTokenizer(c.Tokenizer).Tokenize(r) {
 		c.addFeature(feature, category)
 	}
 
@@ -60,8 +69,8 @@ func (c *IntentClassifier) Classify(r string) (string, error) {
 	classification := ""
 	probabilities := make(map[string]float64)
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.Mu.RLock()
+	defer c.Mu.RUnlock()
 
 	for _, category := range c.categories() {
 		probabilities[category] = c.probability(r, category)
@@ -80,33 +89,33 @@ func (c *IntentClassifier) Classify(r string) (string, error) {
 
 
 func (c *IntentClassifier) addFeature(feature string, category string) {
-	if _, ok := c.feat2cat[feature]; !ok {
-		c.feat2cat[feature] = make(map[string]int)
+	if _, ok := c.Feat2cat[feature]; !ok {
+		c.Feat2cat[feature] = make(map[string]int)
 	}
-	c.feat2cat[feature][category]++
+	c.Feat2cat[feature][category]++
 }
 
 func (c *IntentClassifier) featureCount(feature string, category string) float64 {
-	if _, ok := c.feat2cat[feature]; ok {
-		return float64(c.feat2cat[feature][category])
+	if _, ok := c.Feat2cat[feature]; ok {
+		return float64(c.Feat2cat[feature][category])
 	}
 	return 0.0
 }
 
 func (c *IntentClassifier) addCategory(category string) {
-	c.catCount[category]++
+	c.CatCount[category]++
 }
 
 func (c *IntentClassifier) categoryCount(category string) float64 {
-	if _, ok := c.catCount[category]; ok {
-		return float64(c.catCount[category])
+	if _, ok := c.CatCount[category]; ok {
+		return float64(c.CatCount[category])
 	}
 	return 0.0
 }
 
 func (c *IntentClassifier) count() int {
 	sum := 0
-	for _, value := range c.catCount {
+	for _, value := range c.CatCount {
 		sum += value
 	}
 	return sum
@@ -114,7 +123,7 @@ func (c *IntentClassifier) count() int {
 
 func (c *IntentClassifier) categories() []string {
 	var keys []string
-	for k := range c.catCount {
+	for k := range c.CatCount {
 		keys = append(keys, k)
 	}
 	return keys
@@ -148,7 +157,7 @@ func (c *IntentClassifier) probability(r string, category string) float64 {
 
 func (c *IntentClassifier) docProbability(r string, category string) float64 {
 	probability := 1.0
-	for _,feature := range c.tokenizer.Tokenize(r) {
+	for _,feature := range tokenizers.GetTokenizer(c.Tokenizer).Tokenize(r) {
 		probability *= c.weightedProbability(feature, category)
 	}
 	return probability
@@ -156,4 +165,48 @@ func (c *IntentClassifier) docProbability(r string, category string) float64 {
 
 func asReader(text string) io.Reader {
 	return bytes.NewBufferString(text)
+}
+
+
+//save to a file
+func (c *IntentClassifier) Save(file string) error {
+
+	buf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buf)
+
+	err := encoder.Encode(c)
+	if err != nil {
+		return fmt.Errorf("error encoding model: %s", err)
+	}
+
+	name, version := c.getMeta()
+	persist.Save(file, persist.Modeldata{
+		Data: buf.Bytes(),
+		Name: name,
+		Version: version,
+	})
+	return nil
+}
+
+// Load from the output file.
+func (c *IntentClassifier) Load(filePath string) error {
+	log.Printf("Loading Classifier from %s...", filePath)
+	meta := persist.Load(filePath)
+	//get the classifier current meta data
+	name, version := c.getMeta()
+	if meta.Name != name {
+		return fmt.Errorf("This file doesn't contain a KNearestNeighbors classifier")
+	}
+	if meta.Version != version {
+		return fmt.Errorf("Can't understand this file format")
+	}
+
+	decoder := gob.NewDecoder(bytes.NewBuffer(meta.Data))
+	err := decoder.Decode(&c)
+	if err != nil {
+		return  fmt.Errorf("error decoding RNN checkpoint file: %s", err)
+	}
+
+	checkpointFile = filePath
+	return nil
 }
