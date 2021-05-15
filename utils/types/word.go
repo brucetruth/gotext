@@ -9,9 +9,10 @@ package types
 
 import (
 	"fmt"
+	"github.com/broosaction/gotext/nlp/nlptools/en"
 	"github.com/broosaction/gotext/nlp/pos"
 	"github.com/broosaction/gotext/tokenizers"
-	"github.com/broosaction/gotext/transformers"
+	"strings"
 )
 
 type Word struct {
@@ -27,13 +28,13 @@ type Word struct {
 
 func  NewWord(text string) Word {
 	return Word{
-		Text : text,
-		PosTag : "",
-		Stem : "",
-		Vector : 0,
-		Meaning : "",
-		Letters : []string{},
-		Synonyms : []string{},
+		Text : 		text,
+		PosTag : 	"",
+		Stem : 		"",
+		Vector : 	0,
+		Meaning : 	"",
+		Letters : 	[]string{},
+		Synonyms : 	[]string{},
 	}
 }
 
@@ -54,8 +55,9 @@ func (w *Word) AttachPOStag() {
 	}
 }
 
+//Applies a stemmer to turn words like Cats to Cat
 func (w *Word) ApplyStemmer() *Word{
-	w.Stem = string(transformers.Stem([]byte(w.Text)))
+	w.Stem = string(en.Stem([]byte(w.Text)))
 	return w
 }
 
@@ -64,15 +66,18 @@ func (w *Word) PrepareMeaning() *Word{
 	return w
 }
 
+// Applies words with similer meaning
 func (w *Word) PrepareSynonyms() *Word{
 
 	return w
 }
 
+//explodes the words in an array of characters
 func (w *Word) prepareLetters(){
-
+  w.Letters = strings.Split(w.Text,"")
 }
 
+// Preloads all other needed fields
 func (w *Word) Learn() *Word{
    w.AttachPOStag()
    w.ApplyStemmer()

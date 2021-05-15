@@ -19,24 +19,25 @@ type Document struct {
 	Sentences     []Sentence   `json:"sentences"`
 	Tokens   	  []string `json:"tokens"`
 	WordFrequence FreqDist
-	tokenizer 	  tokenizers.Tokenizer
+	Tokenizer 	  string
 }
 
 func  NewDocument(text string) Document {
+	tokenizer := tokenizers.SentenceTokenizer{}
 	return Document{
-		Text 			: text,
-		Summary	    	: "",
-		Meaning     	: "",
-		Sentences   	: []Sentence{},
-		Tokens      	: []string{},
-		WordFrequence   : FreqDist{},
-		tokenizer   	: &tokenizers.SentenceTokenizer{},
+		Text 			:    	text,
+		Summary	    	: 		"",
+		Meaning     	:     	"",
+		Sentences   	:       []Sentence{},
+		Tokens      	:      	[]string{},
+		WordFrequence   :    	FreqDist{},
+		Tokenizer   	:       tokenizer.GetName(),
 	}
 }
 
 func (d *Document) PrepareSentences() {
-	tokenizer := d.tokenizer
-	for _, w := range tokenizer.Tokenize(d.Text) {
+
+	for _, w := range tokenizers.GetTokenizer(d.Tokenizer).Tokenize(d.Text) {
 
 			sentence := NewSentence(w)
 			sentence.Learn()
@@ -45,7 +46,7 @@ func (d *Document) PrepareSentences() {
 	}
 }
 
-func (d *Document) compute_word_freq() {
+func (d *Document) computeWordFreq() {
 	tokenizer := tokenizers.DefaultTokenizer{}
 	samples := map[string]int{}
 	for _, w := range tokenizer.Tokenize(stringUtils.Cleanup(d.Text)) {
@@ -64,7 +65,7 @@ func (d *Document) compute_word_freq() {
 }
 
 func (d *Document) Learn() *Document{
-	d.compute_word_freq()
+	d.computeWordFreq()
 	d.PrepareSentences()
 	return d
 }

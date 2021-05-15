@@ -17,22 +17,23 @@ type Sentence struct {
 	Meaning  string   `json:"meaning"`
 	Words    []Word   `json:"words"`
 	Tokens   []string  `json:"tokens"`
-	tokenizer tokenizers.Tokenizer
+	Tokenizer string  `json:"tokenizer"`
 }
 
 func  NewSentence(text string) Sentence {
+	tokenizer := tokenizers.DefaultTokenizer{}
 	return Sentence{
-		Text : text,
-		Summary : "",
-		Meaning : "",
-		Words : []Word{},
-		Tokens: []string{},
-		tokenizer : &tokenizers.DefaultTokenizer{},
+		Text :      text,
+		Summary :   "",
+		Meaning :   "",
+		Words :     []Word{},
+		Tokens:     []string{},
+		Tokenizer : tokenizer.GetName(),
 	}
 }
 
 func (s *Sentence) ApplyTokenizer(tokenizer tokenizers.Tokenizer) {
-	s.tokenizer = tokenizer
+
 	for _, w := range tokenizer.Tokenize(s.Text) {
 
 			s.Tokens = append(s.Tokens, w)
@@ -41,8 +42,8 @@ func (s *Sentence) ApplyTokenizer(tokenizer tokenizers.Tokenizer) {
 }
 
 func (s *Sentence) PrepareWords() {
-	tokenizer := s.tokenizer
-	for _, w := range tokenizer.Tokenize(s.Text) {
+
+	for _, w := range tokenizers.GetTokenizer(s.Tokenizer).Tokenize(s.Text) {
 
 			word := NewWord(w)
 			word.Learn()
@@ -52,7 +53,6 @@ func (s *Sentence) PrepareWords() {
 }
 
 func (s *Sentence) PrepareMeaning() *Sentence{
-
 	return s
 }
 
@@ -65,6 +65,6 @@ func (s *Sentence) Learn() *Sentence{
       s.PrepareWords()
       s.PrepareMeaning()
       s.PrepareSummary()
-      s.ApplyTokenizer(s.tokenizer)
+      s.ApplyTokenizer(tokenizers.GetTokenizer(s.Tokenizer))
 	return s
 }
