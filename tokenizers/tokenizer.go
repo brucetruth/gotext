@@ -11,6 +11,7 @@ type Tokenizer interface {
 	// Compute the output value.
 	Tokenize(string) []string
 
+    GetName() string
 }
 
 func GetTokenizer(name string) Tokenizer{
