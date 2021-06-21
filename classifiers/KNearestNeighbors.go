@@ -167,8 +167,6 @@ func (k *KNearestNeighbors) LearnBatch(train [][]float64, label[]string){
 func (k *KNearestNeighbors) Classify(test [][]float64) []string {
 
 	// computing the distance between one testing data and all the training data
-	// fmt.Println(test)
-	// fmt.Println(len(test))
 	var sortedDistance *SortedDistance
 	result := make([]string, len(test))
 	for j, _test := range test {
@@ -229,7 +227,7 @@ func (k *KNearestNeighbors) Classify(test [][]float64) []string {
 	return result
 }
 
-//
+
 //EluerDistance
 func EulerDistance(X, Y, W []float64) float64 {
 
